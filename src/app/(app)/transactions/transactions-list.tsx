@@ -16,12 +16,14 @@ export function TransactionsList({
   categories,
   fixedExpenses,
   currentMonth,
+  initialTab = "expenses",
 }: {
   transactions: Transaction[];
   accounts: Account[];
   categories: Category[];
   fixedExpenses: FixedExpense[];
   currentMonth: string;
+  initialTab?: string;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [showFixedForm, setShowFixedForm] = useState(false);
@@ -85,7 +87,7 @@ export function TransactionsList({
         />
       )}
 
-      <Tabs defaultValue="expenses">
+      <Tabs defaultValue={initialTab}>
         <TabsList className="w-full">
           <TabsTrigger value="expenses" className="flex-1">Gastos</TabsTrigger>
           <TabsTrigger value="fixed" className="flex-1">Fijos</TabsTrigger>

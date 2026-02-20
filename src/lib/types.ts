@@ -18,7 +18,7 @@ export type Category = {
   name: string;
   icon: string | null;
   color: string | null;
-  type: "expense" | "income" | "fixed_system";
+  type: "expense" | "income" | "fixed_system" | "savings";
   is_active: boolean;
   created_at: string;
 };
@@ -73,6 +73,7 @@ export type UserSettings = {
   savings_percentage: number;
   savings_type: "percentage" | "absolute";
   savings_amount: number | null;
+  manual_income_estimate: number | null;
   currency: string;
   created_at: string;
   updated_at: string;

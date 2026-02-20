@@ -4,9 +4,9 @@ import { TransactionsList } from "./transactions-list";
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; tab?: string }>;
 }) {
-  const { month } = await searchParams;
+  const { month, tab } = await searchParams;
   const supabase = await createClient();
 
   const now = new Date();
@@ -51,6 +51,7 @@ export default async function TransactionsPage({
         categories={categories ?? []}
         fixedExpenses={fixedExpenses ?? []}
         currentMonth={currentYM}
+        initialTab={tab === "fixed" || tab === "income" ? tab : "expenses"}
       />
     </div>
   );
