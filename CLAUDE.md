@@ -30,7 +30,7 @@ Three Supabase client variants:
 
 ### Data Model (src/lib/types.ts)
 
-Core entities: Account (credit/debit), Category (expense/income/fixed_system), Transaction, FixedExpense, Budget, UserSettings. All rows are user-scoped (`user_id`). SQL migrations live in `supabase/migrations/`.
+Core entities: Account (credit/debit), Category (expense/income/fixed_system/savings), Transaction, FixedExpense, Budget, UserSettings. All rows are user-scoped (`user_id`). SQL migrations live in `supabase/migrations/`.
 
 ### UI
 

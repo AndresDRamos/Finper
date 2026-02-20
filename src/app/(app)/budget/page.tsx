@@ -19,10 +19,11 @@ export default async function BudgetPage({
   const [
     { data: categories },
     { data: settings },
-    { data: monthBudgets },
+    { data: allBudgets },
     { data: allIncome },
     { data: fixedExpenses },
     { data: txns },
+    { data: savingsCategory },
   ] = await Promise.all([
     supabase.from("categories").select("*").eq("type", "expense").eq("is_active", true).order("name"),
     supabase.from("user_settings").select("*").single(),
@@ -39,7 +40,15 @@ export default async function BudgetPage({
       .eq("type", "expense")
       .gte("transaction_date", monthStart)
       .lte("transaction_date", monthEnd),
+    supabase.from("categories").select("id").eq("type", "savings").single(),
   ]);
+
+  // Separar budget de ahorro de los budgets de categorías
+  const savingsCategoryId = savingsCategory?.id ?? null;
+  const monthBudgets = (allBudgets ?? []).filter((b) => b.category_id !== savingsCategoryId);
+  const initialSavingsBudget = savingsCategoryId
+    ? (allBudgets ?? []).find((b) => b.category_id === savingsCategoryId) ?? null
+    : null;
 
   // Avg income
   const incomeMonths = new Set<string>();
@@ -71,9 +80,9 @@ export default async function BudgetPage({
 
     if (latestBudgets && latestBudgets.length > 0) {
       referenceMonth = latestBudgets[0].month_year;
-      // Take only the budgets from that month, but strip IDs so they're treated as new
+      // Take only the expense budgets from that month, but strip IDs so they're treated as new
       initialBudgets = latestBudgets
-        .filter((b) => b.month_year === referenceMonth)
+        .filter((b) => b.month_year === referenceMonth && b.category_id !== savingsCategoryId)
         .map((b) => ({ ...b, id: undefined as unknown as string, month_year: currentYM }));
     }
   }
@@ -89,6 +98,8 @@ export default async function BudgetPage({
       currentMonth={currentYM}
       isNewMonth={isNewMonth}
       referenceMonth={referenceMonth}
+      savingsCategoryId={savingsCategoryId}
+      initialSavingsBudget={initialSavingsBudget}
     />
   );
 }

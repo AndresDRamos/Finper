@@ -31,6 +31,8 @@ export function BudgetConfig({
   currentMonth,
   isNewMonth,
   referenceMonth,
+  savingsCategoryId,
+  initialSavingsBudget,
 }: {
   categories: Category[];
   settings: UserSettings | null;
@@ -41,16 +43,22 @@ export function BudgetConfig({
   currentMonth: string;           // "YYYY-MM"
   isNewMonth: boolean;            // true if no budgets exist for selected month
   referenceMonth: string | null;  // last month that had budgets
+  savingsCategoryId: string | null;
+  initialSavingsBudget: Budget | null;
 }) {
-  // Savings state
-  const initSavingsMode = (settings?.savings_type ?? "percentage") as InputMode;
-  const initSavingsValue =
-    initSavingsMode === "absolute" && settings?.savings_amount
-      ? settings.savings_amount.toString()
-      : (settings?.savings_percentage ?? 20).toString();
+  // Savings state — leer desde el budget de ahorro, fallback a user_settings (migración)
+  const initSavingsMode: InputMode = initialSavingsBudget
+    ? (initialSavingsBudget.input_type as InputMode)
+    : ((settings?.savings_type ?? "percentage") as InputMode);
+  const initSavingsValue = initialSavingsBudget
+    ? (initialSavingsBudget.input_value?.toString() ?? (settings?.savings_percentage ?? 20).toString())
+    : (initSavingsMode === "absolute" && settings?.savings_amount
+        ? settings.savings_amount.toString()
+        : (settings?.savings_percentage ?? 20).toString());
 
   const [savingsMode, setSavingsMode] = useState<InputMode>(initSavingsMode);
   const [savingsValue, setSavingsValue] = useState(initSavingsValue);
+  const [savingsBudgetId, setSavingsBudgetId] = useState<string | undefined>(initialSavingsBudget?.id);
   const [loading, setLoading] = useState(false);
 
   // Build initial category state from initialBudgets
@@ -138,17 +146,29 @@ export function BudgetConfig({
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Save savings settings
-    const savingsPct =
-      savingsMode === "percentage"
-        ? parseFloat(savingsValue) || 20
-        : (settings?.savings_percentage ?? 20);
+    // Guardar ahorro en la tabla budgets (categoría tipo savings)
+    if (savingsCategoryId) {
+      const savingsPayload = {
+        user_id: user!.id,
+        category_id: savingsCategoryId,
+        month_year: currentMonth,
+        amount: savingsAmount,
+        input_type: savingsMode,
+        input_value: parseFloat(savingsValue) || null,
+        is_manual: true,
+      };
 
-    await supabase.from("user_settings").update({
-      savings_percentage: savingsPct,
-      savings_type: savingsMode,
-      savings_amount: savingsMode === "absolute" ? parseFloat(savingsValue) || null : null,
-    }).eq("user_id", user!.id);
+      if (savingsBudgetId) {
+        await supabase.from("budgets").update(savingsPayload).eq("id", savingsBudgetId);
+      } else {
+        const { data: inserted } = await supabase
+          .from("budgets")
+          .insert(savingsPayload)
+          .select("id")
+          .single();
+        if (inserted) setSavingsBudgetId(inserted.id);
+      }
+    }
 
     // Save budgets
     const updatedMap = new Map(catBudgets);
@@ -194,7 +214,7 @@ export function BudgetConfig({
 
   return (
     <div className="space-y-4 pb-4">
-      <h1 className="text-xl font-bold">Presupuesto</h1>
+      <h1 className="text-xl font-bold">Presupuestos</h1>
       <MonthPicker currentMonth={currentMonth} />
 
       {/* New month banner */}
