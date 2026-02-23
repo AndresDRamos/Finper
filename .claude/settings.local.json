@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git remote add:*)",
+      "Bash(git checkout:*)",
+      "Bash(git push:*)",
+      "Bash(npm install:*)",
+      "Bash(npx supabase:*)",
+      "Bash(npm run build:*)",
+      "Bash(ls:*)",
+      "Bash(npm run lint:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(find:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(node -e:*)",
+      "Bash(git fetch:*)",
+      "Bash(git stash push:*)",
+      "Bash(git pull:*)",
+      "Bash(cat:*)",
+      "Bash(git stash:*)",
+      "Bash(git rm:*)"
+    ]
+  }
+}

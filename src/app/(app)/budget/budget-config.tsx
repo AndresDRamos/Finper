@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { MonthPicker } from "@/components/month-picker";
+import { DynamicIcon } from "@/components/dynamic-icon";
+import { CategoryFormModal } from "./category-form-modal";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Info } from "lucide-react";
+import { AlertTriangle, Info, Plus, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type InputMode = "percentage" | "absolute";
@@ -22,7 +24,8 @@ interface CategoryBudgetState {
 }
 
 export function BudgetConfig({
-  categories,
+  expenseCategories,
+  incomeCategories,
   settings,
   initialBudgets,
   spentMap,
@@ -34,18 +37,26 @@ export function BudgetConfig({
   savingsCategoryId,
   initialSavingsBudget,
 }: {
-  categories: Category[];
+  expenseCategories: Category[];
+  incomeCategories: Category[];
   settings: UserSettings | null;
-  initialBudgets: Budget[];       // budgets for selected month (may be empty)
+  initialBudgets: Budget[];
   spentMap: Record<string, number>;
   avgIncome: number;
   fixedTotal: number;
-  currentMonth: string;           // "YYYY-MM"
-  isNewMonth: boolean;            // true if no budgets exist for selected month
-  referenceMonth: string | null;  // last month that had budgets
+  currentMonth: string;
+  isNewMonth: boolean;
+  referenceMonth: string | null;
   savingsCategoryId: string | null;
   initialSavingsBudget: Budget | null;
 }) {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"expense" | "income">("expense");
+
+  // Category modal state
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
   // Savings state — leer desde el budget de ahorro, fallback a user_settings (migración)
   const initSavingsMode: InputMode = initialSavingsBudget
     ? (initialSavingsBudget.input_type as InputMode)
@@ -65,7 +76,7 @@ export function BudgetConfig({
   const buildInitialCatBudgets = () => {
     const bdMap = new Map(initialBudgets.map((b) => [b.category_id, b]));
     const map = new Map<string, CategoryBudgetState>();
-    for (const cat of categories) {
+    for (const cat of expenseCategories) {
       const bd = bdMap.get(cat.id);
       map.set(cat.id, {
         id: bd?.id,
@@ -141,6 +152,16 @@ export function BudgetConfig({
     updateCatBudget(catId, { isManual: false, inputValue: "" });
   }
 
+  function openNewCategory() {
+    setEditingCategory(null);
+    setShowCategoryModal(true);
+  }
+
+  function openEditCategory(cat: Category) {
+    setEditingCategory(cat);
+    setShowCategoryModal(true);
+  }
+
   async function handleSave() {
     setLoading(true);
     const supabase = createClient();
@@ -154,7 +175,7 @@ export function BudgetConfig({
         month_year: currentMonth,
         amount: savingsAmount,
         input_type: savingsMode,
-        input_value: parseFloat(savingsValue) || null,
+        input_value: savingsValue !== "" ? parseFloat(savingsValue) : null,
         is_manual: true,
       };
 
@@ -174,7 +195,7 @@ export function BudgetConfig({
     const updatedMap = new Map(catBudgets);
     for (const [categoryId, state] of catBudgets) {
       const computedAmount = resolvedAmounts.get(categoryId) ?? 0;
-      const inputVal = parseFloat(state.inputValue) || null;
+      const inputVal = state.inputValue !== "" ? parseFloat(state.inputValue) : null;
 
       const payload = {
         user_id: user!.id,
@@ -217,173 +238,269 @@ export function BudgetConfig({
       <h1 className="text-xl font-bold">Presupuestos</h1>
       <MonthPicker currentMonth={currentMonth} />
 
-      {/* New month banner */}
-      {isNewMonth && referenceMonth && (
-        <div className="flex items-start gap-2 text-sm text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-md px-3 py-2">
-          <Info className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            Presupuesto nuevo basado en <strong>{fmtMonth(referenceMonth)}</strong>. Ajusta los valores y guarda.
-          </span>
-        </div>
-      )}
-
-      {/* Net income summary */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Ingreso neto disponible</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Ingreso promedio</span>
-            <span>${avgIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Gastos fijos</span>
-            <span>-${fixedTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Ahorro</span>
-            <span>-${savingsAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-          </div>
-          <div className="flex justify-between font-semibold border-t pt-1 mt-1">
-            <span>Neto</span>
-            <span className={netIncome < 0 ? "text-red-500" : "text-green-500"}>
-              ${netIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Savings config */}
-      <Card>
-        <CardContent className="pt-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Ahorro mensual</p>
-            <ModeToggle mode={savingsMode} onChange={setSavingsMode} />
-          </div>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              step={savingsMode === "percentage" ? "0.5" : "1"}
-              min="0"
-              max={savingsMode === "percentage" ? "100" : undefined}
-              value={savingsValue}
-              onChange={(e) => setSavingsValue(e.target.value)}
-              className="h-8 text-sm"
-            />
-            <span className="text-sm text-muted-foreground w-24 shrink-0">
-              {savingsMode === "percentage"
-                ? `= $${savingsAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-                : `(${avgIncome > 0 ? ((savingsAmount / avgIncome) * 100).toFixed(1) : 0}%)`}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Over budget warning */}
-      {isOverBudget && (
-        <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>
-            Excedes el ingreso neto por ${(totalAllocated - netIncome).toLocaleString(undefined, { maximumFractionDigits: 0 })}. Ajusta los montos.
-          </span>
-        </div>
-      )}
-
-      {/* Category budgets */}
-      <div className="space-y-2">
-        <div className="flex justify-between items-center px-1">
-          <p className="text-sm font-medium">Categorías de gasto</p>
-          <p className="text-xs text-muted-foreground">
-            Asignado: ${totalAllocated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            {" · "}Gastado: ${totalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </p>
-        </div>
-
-        {categories.map((cat) => {
-          const state = catBudgets.get(cat.id);
-          if (!state) return null;
-          const budgetAmt = resolvedAmounts.get(cat.id) ?? 0;
-          const spentAmt = state.spentAmount;
-          const pct = budgetAmt > 0 ? (spentAmt / budgetAmt) * 100 : 0;
-
-          return (
-            <Card key={cat.id}>
-              <CardContent className="py-3 px-4 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm flex items-center gap-1.5">
-                    {cat.icon} {cat.name}
-                    {!state.isManual && (
-                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Auto</span>
-                    )}
-                  </span>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    ${spentAmt.toLocaleString(undefined, { maximumFractionDigits: 0 })} / ${budgetAmt.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder={
-                      state.isManual
-                        ? ""
-                        : `${budgetAmt.toLocaleString(undefined, { maximumFractionDigits: 0 })} (auto)`
-                    }
-                    value={state.inputValue}
-                    onChange={(e) =>
-                      updateCatBudget(cat.id, {
-                        inputValue: e.target.value,
-                        isManual: e.target.value !== "",
-                      })
-                    }
-                    className="h-8 text-sm"
-                  />
-                  <ModeToggle
-                    mode={state.inputMode}
-                    onChange={(m) => updateCatBudget(cat.id, { inputMode: m })}
-                  />
-                  {state.isManual && (
-                    <button
-                      type="button"
-                      onClick={() => resetCategory(cat.id)}
-                      className="text-xs text-muted-foreground hover:text-foreground px-1"
-                      title="Quitar manual"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-
-                {state.inputMode === "percentage" && state.isManual && state.inputValue && (
-                  <p className="text-xs text-muted-foreground">
-                    = ${(netIncome * ((parseFloat(state.inputValue) || 0) / 100)).toLocaleString(
-                      undefined, { maximumFractionDigits: 0 }
-                    )}
-                  </p>
-                )}
-
-                {budgetAmt > 0 && (
-                  <Progress
-                    value={Math.min(pct, 100)}
-                    className={pct > 100 ? "[&>div]:bg-red-500" : pct > 80 ? "[&>div]:bg-yellow-500" : ""}
-                  />
-                )}
-                {pct > 100 && (
-                  <p className="text-xs text-red-500">
-                    Excedido por ${(spentAmt - budgetAmt).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* Pill tab switcher */}
+      <div className="flex rounded-full border p-0.5 bg-muted w-fit mx-auto">
+        <button
+          type="button"
+          onClick={() => setActiveTab("expense")}
+          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            activeTab === "expense"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground"
+          }`}
+        >
+          Gastos
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("income")}
+          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            activeTab === "income"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground"
+          }`}
+        >
+          Ingresos
+        </button>
       </div>
 
-      <Button onClick={handleSave} className="w-full" disabled={loading}>
-        {loading ? "Guardando..." : "Guardar presupuesto"}
-      </Button>
+      {activeTab === "expense" ? (
+        <>
+          {/* New month banner */}
+          {isNewMonth && referenceMonth && (
+            <div className="flex items-start gap-2 text-sm text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-md px-3 py-2">
+              <Info className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                Presupuesto nuevo basado en <strong>{fmtMonth(referenceMonth)}</strong>. Ajusta los valores y guarda.
+              </span>
+            </div>
+          )}
+
+          {/* Net income summary */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Ingreso neto disponible</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Ingreso promedio</span>
+                <span>${avgIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Gastos fijos</span>
+                <span>-${fixedTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Ahorro</span>
+                <span>-${savingsAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              </div>
+              <div className="flex justify-between font-semibold border-t pt-1 mt-1">
+                <span>Neto</span>
+                <span className={netIncome < 0 ? "text-red-500" : "text-green-500"}>
+                  ${netIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Savings config */}
+          <Card>
+            <CardContent className="pt-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Ahorro mensual</p>
+                <ModeToggle mode={savingsMode} onChange={setSavingsMode} />
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  step={savingsMode === "percentage" ? "0.5" : "1"}
+                  min="0"
+                  max={savingsMode === "percentage" ? "100" : undefined}
+                  value={savingsValue}
+                  onChange={(e) => setSavingsValue(e.target.value)}
+                  className="h-8 text-sm"
+                />
+                <span className="text-sm text-muted-foreground w-24 shrink-0">
+                  {savingsMode === "percentage"
+                    ? `= $${savingsAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                    : `(${avgIncome > 0 ? ((savingsAmount / avgIncome) * 100).toFixed(1) : 0}%)`}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Over budget warning */}
+          {isOverBudget && (
+            <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>
+                Excedes el ingreso neto por ${(totalAllocated - netIncome).toLocaleString(undefined, { maximumFractionDigits: 0 })}. Ajusta los montos.
+              </span>
+            </div>
+          )}
+
+          {/* Category budgets */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center px-1">
+              <p className="text-sm font-medium">Categorías de gasto</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground">
+                  ${totalAllocated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  {" · "}${totalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={openNewCategory}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Nueva
+                </Button>
+              </div>
+            </div>
+
+            {expenseCategories.map((cat) => {
+              const state = catBudgets.get(cat.id);
+              if (!state) return null;
+              const budgetAmt = resolvedAmounts.get(cat.id) ?? 0;
+              const spentAmt = state.spentAmount;
+              const pct = budgetAmt > 0 ? (spentAmt / budgetAmt) * 100 : 0;
+
+              return (
+                <Card key={cat.id}>
+                  <CardContent className="py-3 px-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm flex items-center gap-1.5">
+                        <DynamicIcon name={cat.icon} size={16} fallback={<span className="text-base">{cat.icon}</span>} />
+                        {cat.name}
+                        {!state.isManual && (
+                          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Auto</span>
+                        )}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          ${spentAmt.toLocaleString(undefined, { maximumFractionDigits: 0 })} / ${budgetAmt.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openEditCategory(cat)}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder={
+                          state.isManual
+                            ? ""
+                            : `${budgetAmt.toLocaleString(undefined, { maximumFractionDigits: 0 })} (auto)`
+                        }
+                        value={state.inputValue}
+                        onChange={(e) =>
+                          updateCatBudget(cat.id, {
+                            inputValue: e.target.value,
+                            isManual: e.target.value !== "",
+                          })
+                        }
+                        className="h-8 text-sm"
+                      />
+                      <ModeToggle
+                        mode={state.inputMode}
+                        onChange={(m) => updateCatBudget(cat.id, { inputMode: m })}
+                      />
+                      {state.isManual && (
+                        <button
+                          type="button"
+                          onClick={() => resetCategory(cat.id)}
+                          className="text-xs text-muted-foreground hover:text-foreground px-1"
+                          title="Quitar manual"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {state.inputMode === "percentage" && state.isManual && state.inputValue && (
+                      <p className="text-xs text-muted-foreground">
+                        = ${(netIncome * ((parseFloat(state.inputValue) || 0) / 100)).toLocaleString(
+                          undefined, { maximumFractionDigits: 0 }
+                        )}
+                      </p>
+                    )}
+
+                    {budgetAmt > 0 && (
+                      <Progress
+                        value={Math.min(pct, 100)}
+                        className={pct > 100 ? "[&>div]:bg-red-500" : pct > 80 ? "[&>div]:bg-yellow-500" : ""}
+                      />
+                    )}
+                    {pct > 100 && (
+                      <p className="text-xs text-red-500">
+                        Excedido por ${(spentAmt - budgetAmt).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <Button onClick={handleSave} className="w-full" disabled={loading}>
+            {loading ? "Guardando..." : "Guardar presupuesto"}
+          </Button>
+        </>
+      ) : (
+        /* Income tab — categories only, no budget inputs */
+        <div className="space-y-2">
+          <div className="flex justify-between items-center px-1">
+            <p className="text-sm font-medium">Categorías de ingreso</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={openNewCategory}
+            >
+              <Plus className="h-3 w-3 mr-1" /> Nueva
+            </Button>
+          </div>
+
+          {incomeCategories.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No hay categorías de ingreso. Crea una para comenzar.
+            </p>
+          )}
+
+          {incomeCategories.map((cat) => (
+            <Card key={cat.id}>
+              <CardContent className="py-3 px-4">
+                <div className="flex items-center gap-2">
+                  <DynamicIcon name={cat.icon} size={16} fallback={<span className="text-base">{cat.icon}</span>} />
+                  <span className="text-sm">{cat.name}</span>
+                  <button
+                    type="button"
+                    className="ml-auto text-muted-foreground hover:text-foreground"
+                    onClick={() => openEditCategory(cat)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <CategoryFormModal
+        open={showCategoryModal}
+        onOpenChange={setShowCategoryModal}
+        categoryType={activeTab}
+        category={editingCategory}
+      />
     </div>
   );
 }

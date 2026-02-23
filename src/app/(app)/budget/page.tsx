@@ -17,7 +17,8 @@ export default async function BudgetPage({
   const monthEnd = `${y}-${String(m).padStart(2, "0")}-${new Date(y, m, 0).getDate()}`;
 
   const [
-    { data: categories },
+    { data: expenseCategories },
+    { data: incomeCategories },
     { data: settings },
     { data: allBudgets },
     { data: allIncome },
@@ -26,6 +27,7 @@ export default async function BudgetPage({
     { data: savingsCategory },
   ] = await Promise.all([
     supabase.from("categories").select("*").eq("type", "expense").eq("is_active", true).order("name"),
+    supabase.from("categories").select("*").eq("type", "income").eq("is_active", true).order("name"),
     supabase.from("user_settings").select("*").single(),
     supabase.from("budgets").select("*").eq("month_year", currentYM),
     supabase.from("transactions").select("amount, transaction_date").eq("type", "income"),
@@ -80,7 +82,6 @@ export default async function BudgetPage({
 
     if (latestBudgets && latestBudgets.length > 0) {
       referenceMonth = latestBudgets[0].month_year;
-      // Take only the expense budgets from that month, but strip IDs so they're treated as new
       initialBudgets = latestBudgets
         .filter((b) => b.month_year === referenceMonth && b.category_id !== savingsCategoryId)
         .map((b) => ({ ...b, id: undefined as unknown as string, month_year: currentYM }));
@@ -89,7 +90,8 @@ export default async function BudgetPage({
 
   return (
     <BudgetConfig
-      categories={categories ?? []}
+      expenseCategories={expenseCategories ?? []}
+      incomeCategories={incomeCategories ?? []}
       settings={settings}
       initialBudgets={initialBudgets}
       spentMap={spentMap}
