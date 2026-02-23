@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ArrowLeftRight, Landmark, Tags, Percent } from "lucide-react";
+import { LayoutDashboard, ArrowLeftRight, Landmark, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "Inicio", icon: LayoutDashboard },
   { href: "/transactions", label: "Movimientos", icon: ArrowLeftRight },
   { href: "/accounts", label: "Cuentas", icon: Landmark },
-  { href: "/categories", label: "Categorías", icon: Tags },
   { href: "/budget", label: "Presupuestos", icon: Percent },
 ];
 
