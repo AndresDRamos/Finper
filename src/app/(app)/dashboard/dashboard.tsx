@@ -12,10 +12,9 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
 import { IncomeRing } from "./income-ring";
 import { BudgetBars } from "./budget-bars";
-import { NewTransactionModal } from "@/components/new-transaction-modal";
+import { NewTransactionFab } from "@/components/new-transaction-fab";
 
 function getMonthsSet(income: { amount: number; transaction_date: string }[]) {
   const months = new Set<string>();
@@ -53,8 +52,6 @@ export function Dashboard({
   const router = useRouter();
   const [manualInput, setManualInput] = useState("");
   const [savingManual, setSavingManual] = useState(false);
-  const [showNewTx, setShowNewTx] = useState(false);
-
   const avgIncome = useMemo(() => {
     const months = getMonthsSet(recentIncome);
     if (months.size === 0) return null;
@@ -162,20 +159,7 @@ export function Dashboard({
         spentMap={spentMap}
       />
 
-      {/* FAB para nueva transacción */}
-      <button
-        onClick={() => setShowNewTx(true)}
-        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
-
-      <NewTransactionModal
-        open={showNewTx}
-        onOpenChange={setShowNewTx}
-        accounts={accounts}
-        categories={allCategories}
-      />
+      <NewTransactionFab accounts={accounts} categories={allCategories} />
     </div>
   );
 }
