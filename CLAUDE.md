@@ -8,6 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run build` — Production build
 - `npm run lint` — ESLint (flat config, Next.js preset)
 - No test framework configured
+- `git branch` — Verify that you are on the correct branch
+- `git status` — View status after completing a change to see modified files
+- `git push origin <branch>` — Deploy changes to the edited branch
+
 
 ## Architecture
 

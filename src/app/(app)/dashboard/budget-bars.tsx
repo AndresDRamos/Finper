@@ -104,22 +104,21 @@ export function BudgetBars({
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {rows.map(({ cat, budgeted, spent, remaining, excess, usage }) => {
           const pct = Math.min(usage * 100, 100);
           const over = usage > 1;
           const barColor =
             over || usage >= 0.9
-              ? "#ef4444"
+              ? "#570606"
               : usage >= 0.8
-                ? "#f59e0b"
-                : "#264B64";
+                ? "#6e4909"
+                : "#073d61";
 
           return (
-            <div key={cat.id} className="space-y-1">
+            <div key={cat.id} className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-medium flex items-center gap-1">
-                  {cat.icon && <span>{cat.icon}</span>}
+                <span className="font-medium flex items-center ">
                   {cat.name}
                 </span>
                 {over ? (
@@ -138,21 +137,23 @@ export function BudgetBars({
                   </span>
                 )}
               </div>
-              <div className="relative h-7 w-full rounded-md bg-white/8 overflow-hidden">
+
+              <div className="relative h-3 w-full rounded-md bg-white/8 overflow-hidden">
                 <div
                   className="h-full rounded-md transition-all duration-500"
                   style={{ width: `${pct}%`, backgroundColor: barColor }}
                 />
                 {/* Data-label interno: gastado / presupuestado */}
-                <span
-                  className="absolute inset-y-0 left-2.5 flex items-center text-[11px] tabular-nums leading-none pointer-events-none text-white"
+                {/* <span
+                  className="absolute inset-y-0 left-2.5 flex items-center text-[10Xpx] tabular-nums leading-none pointer-events-none text-white"
                   style={{ fontFamily: DATA_LABEL_FONT }}
                 >
                   ${fmt(spent)} / ${fmt(budgeted)}
-                </span>
+                </span> */}
                 {/* % derecho */}
+
                 <span
-                  className="absolute inset-y-0 right-2.5 flex items-center text-[11px] tabular-nums text-white/50 leading-none pointer-events-none"
+                  className="absolute inset-y-0 right-1.5 flex items-center text-[11px] tabular-nums text-white/60 leading-none pointer-events-none"
                   style={{ fontFamily: DATA_LABEL_FONT }}
                 >
                   {pct.toFixed(0)}%

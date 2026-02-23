@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { Dashboard } from "./dashboard";
+import { Dashboard } from "./dashboard/dashboard";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -62,6 +62,8 @@ export default async function DashboardPage() {
     { data: savingsCategory },
     { data: expenseCategories },
     { data: monthBudgets },
+    { data: accounts },
+    { data: allCategories },
   ] = await Promise.all([
     supabase.from("user_settings").select("*").single(),
     supabase
@@ -89,6 +91,8 @@ export default async function DashboardPage() {
       .single(),
     supabase.from("categories").select("*").eq("type", "expense").eq("is_active", true).order("name"),
     supabase.from("budgets").select("*").eq("month_year", currentYM),
+    supabase.from("accounts").select("*").eq("is_active", true).order("name"),
+    supabase.from("categories").select("*").eq("is_active", true).order("name"),
   ]);
 
   // Spent per expense category this month
@@ -123,6 +127,8 @@ export default async function DashboardPage() {
       expenseCategories={expenseCategories ?? []}
       monthBudgets={monthBudgets ?? []}
       spentMap={spentMap}
+      accounts={accounts ?? []}
+      allCategories={allCategories ?? []}
     />
   );
 }

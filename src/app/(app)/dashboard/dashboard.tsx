@@ -6,13 +6,16 @@ import {
   FixedExpense,
   Budget,
   Category,
+  Account,
 } from "@/lib/types";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { Plus } from "lucide-react";
 import { IncomeRing } from "./income-ring";
 import { BudgetBars } from "./budget-bars";
+import { NewTransactionModal } from "@/components/new-transaction-modal";
 
 function getMonthsSet(income: { amount: number; transaction_date: string }[]) {
   const months = new Set<string>();
@@ -31,6 +34,8 @@ export function Dashboard({
   expenseCategories,
   monthBudgets,
   spentMap,
+  accounts,
+  allCategories,
 }: {
   settings: UserSettings | null;
   transactions: Transaction[];
@@ -42,10 +47,13 @@ export function Dashboard({
   expenseCategories: Category[];
   monthBudgets: Budget[];
   spentMap: Record<string, number>;
+  accounts: Account[];
+  allCategories: Category[];
 }) {
   const router = useRouter();
   const [manualInput, setManualInput] = useState("");
   const [savingManual, setSavingManual] = useState(false);
+  const [showNewTx, setShowNewTx] = useState(false);
 
   const avgIncome = useMemo(() => {
     const months = getMonthsSet(recentIncome);
@@ -152,6 +160,21 @@ export function Dashboard({
         expenseCategories={expenseCategories}
         monthBudgets={monthBudgets}
         spentMap={spentMap}
+      />
+
+      {/* FAB para nueva transacción */}
+      <button
+        onClick={() => setShowNewTx(true)}
+        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
+      <NewTransactionModal
+        open={showNewTx}
+        onOpenChange={setShowNewTx}
+        accounts={accounts}
+        categories={allCategories}
       />
     </div>
   );
