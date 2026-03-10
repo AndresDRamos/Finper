@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
 import { Budget, Category } from "@/lib/types";
+import { DynamicIcon } from "@/components/dynamic-icon";
 
 // ── Fuente para los data-labels numéricos de las barras ───────────────────────
 // Cambia este valor para experimentar: "Aptos Narrow", "Inter", "monospace", etc.
@@ -118,7 +119,11 @@ export function BudgetBars({
           return (
             <div key={cat.id} className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-medium flex items-center ">
+                <span className="font-medium flex items-center gap-1.5">
+                  <DynamicIcon
+                    name={cat.icon ?? null}
+                    className="h-4 w-4 inline "
+                  />
                   {cat.name}
                 </span>
                 {over ? (

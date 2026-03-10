@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DynamicIcon } from "./dynamic-icon";
 import {
   Select,
   SelectContent,
@@ -142,12 +143,17 @@ export function NewTransactionModal({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
+      <SheetContent
+        side="bottom"
+        className="rounded-t-2xl max-h-[85vh] overflow-y-auto"
+      >
         {step === "type" ? (
           <>
             <SheetHeader>
               <SheetTitle>Nueva transacción</SheetTitle>
-              <SheetDescription>¿Qué tipo de movimiento quieres registrar?</SheetDescription>
+              <SheetDescription>
+                ¿Qué tipo de movimiento quieres registrar?
+              </SheetDescription>
             </SheetHeader>
             <div className="grid grid-cols-3 gap-3 p-4 pt-0">
               <button
@@ -236,9 +242,7 @@ export function NewTransactionModal({
               </div>
 
               <div className="space-y-1">
-                <Label>
-                  Categoría{txType === "income" ? " *" : ""}
-                </Label>
+                <Label>Categoría{txType === "income" ? " *" : ""}</Label>
                 <Select value={categoryId} onValueChange={setCategoryId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar" />
@@ -246,13 +250,16 @@ export function NewTransactionModal({
                   <SelectContent>
                     {filteredCategories.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.icon} {c.name}
+                        <DynamicIcon
+                          name={c.icon ?? null}
+                          className="h-4 w-4 inline "
+                        />{" "}
+                        {c.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-
               {/* Descripción para gasto/ingreso */}
               {txType !== "fixed" && (
                 <div className="space-y-1">
@@ -306,11 +313,7 @@ export function NewTransactionModal({
                 </>
               )}
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={loading}
-              >
+              <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Guardando..." : "Guardar"}
               </Button>
             </form>
