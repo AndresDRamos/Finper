@@ -138,12 +138,12 @@ export function BudgetBars({
                     className="tabular-nums text-muted-foreground"
                     style={{ fontFamily: DATA_LABEL_FONT }}
                   >
-                    +${fmt(remaining)} restante
+                    +${fmt(remaining < 1 ? 0 : remaining)} restante
                   </span>
                 )}
               </div>
 
-              <div className="relative h-3 w-full rounded-md bg-white/8 overflow-hidden">
+              <div className="relative h-4 w-full rounded-md bg-white/8 overflow-hidden">
                 <div
                   className="h-full rounded-md transition-all duration-500"
                   style={{ width: `${pct}%`, backgroundColor: barColor }}
@@ -157,11 +157,18 @@ export function BudgetBars({
                 </span> */}
                 {/* % derecho */}
 
-                <span
+                {/* <span
                   className="absolute inset-y-0 right-1.5 flex items-center text-[11px] tabular-nums text-white/60 leading-none pointer-events-none"
                   style={{ fontFamily: DATA_LABEL_FONT }}
                 >
                   {pct.toFixed(0)}%
+                </span> */}
+
+                <span
+                  className="absolute inset-y-0 left-2.5 flex items-center text-[11px] tabular-nums leading-none pointer-events-none text-white"
+                  style={{ fontFamily: DATA_LABEL_FONT }}
+                >
+                  ${fmt(spent)} / ${fmt(budgeted)}
                 </span>
               </div>
             </div>

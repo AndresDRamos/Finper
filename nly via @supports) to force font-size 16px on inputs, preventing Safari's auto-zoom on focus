@@ -1,0 +1,39 @@
+[1mdiff --git a/src/app/(app)/dashboard/budget-bars.tsx b/src/app/(app)/dashboard/budget-bars.tsx[m
+[1mindex 03d758e..fe4ee99 100644[m
+[1m--- a/src/app/(app)/dashboard/budget-bars.tsx[m
+[1m+++ b/src/app/(app)/dashboard/budget-bars.tsx[m
+[36m@@ -138,12 +138,12 @@[m [mexport function BudgetBars({[m
+                     className="tabular-nums text-muted-foreground"[m
+                     style={{ fontFamily: DATA_LABEL_FONT }}[m
+                   >[m
+[31m-                    +${fmt(remaining)} restante[m
+[32m+[m[32m                    +${fmt(remaining < 1 ? 0 : remaining)} restante[m
+                   </span>[m
+                 )}[m
+               </div>[m
+ [m
+[31m-              <div className="relative h-3 w-full rounded-md bg-white/8 overflow-hidden">[m
+[32m+[m[32m              <div className="relative h-4 w-full rounded-md bg-white/8 overflow-hidden">[m
+                 <div[m
+                   className="h-full rounded-md transition-all duration-500"[m
+                   style={{ width: `${pct}%`, backgroundColor: barColor }}[m
+[36m@@ -157,11 +157,18 @@[m [mexport function BudgetBars({[m
+                 </span> */}[m
+                 {/* % derecho */}[m
+ [m
+[31m-                <span[m
+[32m+[m[32m                {/* <span[m
+                   className="absolute inset-y-0 right-1.5 flex items-center text-[11px] tabular-nums text-white/60 leading-none pointer-events-none"[m
+                   style={{ fontFamily: DATA_LABEL_FONT }}[m
+                 >[m
+                   {pct.toFixed(0)}%[m
+[32m+[m[32m                </span> */}[m
+[32m+[m
+[32m+[m[32m                <span[m
+[32m+[m[32m                  className="absolute inset-y-0 left-2.5 flex items-center text-[11px] tabular-nums leading-none pointer-events-none text-white"[m
+[32m+[m[32m                  style={{ fontFamily: DATA_LABEL_FONT }}[m
+[32m+[m[32m                >[m
+[32m+[m[32m                  ${fmt(spent)} / ${fmt(budgeted)}[m
+                 </span>[m
+               </div>[m
+             </div>[m
