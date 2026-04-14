@@ -1,56 +1,68 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Índice y routing table para agentes. Lee los archivos `docs/` según tu tarea.
 
-## Commands
+## Comandos
 
-- `npm run dev` — Start dev server
-- `npm run build` — Production build
-- `npm run lint` — ESLint (flat config, Next.js preset)
-- No test framework configured
-- `git branch` — Verify that you are on the correct branch
-- `git status` — View status after completing a change to see modified files
-- `git push origin <branch>` — Deploy changes to the edited branch
+- `npm run dev` — servidor de desarrollo
+- `npm run build` — build de producción
+- `npm run lint` — ESLint
+- `git branch` / `git status` — verificar estado antes y después de cambios
+- `git push origin <branch>` — Vercel auto-deploys en push a `master`
 
+## Routing Table
 
-## Architecture
+Lee **solo** los docs relevantes a tu tarea:
 
-**Finper** is a personal finance PWA (Spanish-language) built with Next.js 16 (App Router), Supabase auth/database, Tailwind CSS 4, and shadcn/ui (new-york style).
+| Tarea | Doc a leer |
+|-------|-----------|
+| Crear/editar formulario, Server Action, insertar/actualizar datos | [docs/patterns.md](docs/patterns.md) |
+| Nueva página con fetch, queries, joins, Promise.all | [docs/patterns.md](docs/patterns.md) |
+| Entender entidades, campos, relaciones entre tablas | [docs/data-model.md](docs/data-model.md) |
+| Lógica de Budget, FixedExpense, Category types | [docs/data-model.md](docs/data-model.md) |
+| Usar DynamicIcon, shadcn, Sheet, layout, colores | [docs/ui-components.md](docs/ui-components.md) |
+| Agregar componente UI, cambio visual, dark mode | [docs/ui-components.md](docs/ui-components.md) |
+| Crear tabla, ALTER TABLE, RLS policy, migration SQL | [docs/database.md](docs/database.md) |
+| Nueva ruta, Server Action con user_id, flujo de sesión | [docs/auth.md](docs/auth.md) |
 
-### Route Groups
+## Stack
 
-- `(auth)/` — Public pages: login, register
-- `(app)/` — Authenticated pages: dashboard, accounts, transactions, categories, budget, settings
-- `auth/callback/` — Supabase OAuth callback route
+Next.js 16 App Router · React 19 · TypeScript 5 · Supabase SSR · Tailwind CSS 4 · shadcn/ui (new-york) · lucide-react · sonner · recharts · PWA
 
-### Auth Flow
+## Rutas principales
 
-Supabase SSR auth with middleware-based session refresh (`src/lib/supabase/middleware.ts`). Unauthenticated users are redirected to `/login`. The `(app)/layout.tsx` also guards routes server-side via `getUser()`.
+- `src/app/(auth)/` — login, register (públicas)
+- `src/app/(app)/` — dashboard, accounts, transactions, budget (protegidas)
+- `src/app/auth/callback/` — OAuth callback
+- `src/components/` — componentes compartidos
+- `src/lib/types.ts` — todos los tipos TypeScript centralizados
+- `src/lib/supabase/` — client.ts · server.ts · middleware.ts
+- `supabase/migrations/` — SQL migrations
 
-Three Supabase client variants:
-- `src/lib/supabase/client.ts` — Browser client
-- `src/lib/supabase/server.ts` — Server Component / Server Action client
-- `src/lib/supabase/middleware.ts` — Middleware client for session refresh
+## Reglas críticas (siempre aplican)
 
-### Data Model (src/lib/types.ts)
+1. **DynamicIcon**: `Category.icon` es kebab-case. SIEMPRE `<DynamicIcon name={icon} />`. NUNCA emoji ni string crudo.
+2. **Path alias**: `@/` mapea a `src/`.
+3. **shadcn/ui**: `src/components/ui/` — NO editar manualmente. Usar `npx shadcn add`.
+4. **UI**: dark mode only · mobile-first · UI en español.
+5. **DB scoping**: toda fila tiene `user_id` — siempre user-scoped.
 
-Core entities: Account (credit/debit), Category (expense/income/fixed_system/savings), Transaction, FixedExpense, Budget, UserSettings. All rows are user-scoped (`user_id`). SQL migrations live in `supabase/migrations/`.
+## Variables de entorno
 
-### UI
+`NEXT_PUBLIC_SUPABASE_URL` · `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-- shadcn/ui components in `src/components/ui/` (do not edit manually — use `npx shadcn add`)
-- App-level components in `src/components/` (BottomNav, MonthPicker)
-- Feature components colocated with their route (e.g., `accounts/account-form.tsx`)
-- Icons: lucide-react
-- Toasts: sonner
+---
 
-### Environment Variables
+## Auto-actualización de docs (obligatorio al terminar)
 
-Required: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+Antes de cerrar la sesión, revisa si tu implementación modificó alguna de estas áreas y actualiza el doc correspondiente:
 
-### Conventions
+| Si cambiaste... | Actualiza |
+|----------------|-----------|
+| Patrón de formulario, fetch, Server Action o month range | [docs/patterns.md](docs/patterns.md) |
+| Schema de entidades, campos, enums o reglas de negocio | [docs/data-model.md](docs/data-model.md) |
+| Componentes UI, DynamicIcon, layout, shadcn, colores | [docs/ui-components.md](docs/ui-components.md) |
+| Tablas SQL, RLS policies, triggers, migrations | [docs/database.md](docs/database.md) |
+| Auth flow, clientes Supabase, rutas protegidas | [docs/auth.md](docs/auth.md) |
 
-- Dark mode only (`<html lang="es" className="dark">`)
-- Mobile-first layout with bottom navigation, max-w-lg centered content
-- Path aliases: `@/` maps to `src/`
-- Server Actions pattern for data mutations (colocated in page/component files)
+Mantén cada archivo dentro de su longitud recomendada (~50-90 líneas). Si crece demasiado, consolida en lugar de expandir.

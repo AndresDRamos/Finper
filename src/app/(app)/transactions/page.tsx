@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { TransactionsList } from "./transactions-list";
+import { NewTransactionFab } from "@/components/new-transaction-fab";
 
 export default async function TransactionsPage({
   searchParams,
@@ -10,7 +11,9 @@ export default async function TransactionsPage({
   const supabase = await createClient();
 
   const now = new Date();
-  const currentYM = month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const currentYM =
+    month ||
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const isAll = currentYM === "all";
 
   let txnQuery = supabase
@@ -28,23 +31,28 @@ export default async function TransactionsPage({
     const [y, m] = currentYM.split("-").map(Number);
     const monthStart = `${currentYM}-01`;
     const monthEnd = `${y}-${String(m).padStart(2, "0")}-${new Date(y, m, 0).getDate()}`;
-    txnQuery = txnQuery.gte("transaction_date", monthStart).lte("transaction_date", monthEnd);
+    txnQuery = txnQuery
+      .gte("transaction_date", monthStart)
+      .lte("transaction_date", monthEnd);
     fixedQuery = fixedQuery
       .lte("start_date", monthEnd)
       .or(`end_date.is.null,end_date.gte.${monthStart}`);
   }
 
-  const [{ data: transactions }, { data: accounts }, { data: categories }, { data: fixedExpenses }] =
-    await Promise.all([
-      txnQuery,
-      supabase.from("accounts").select("*").eq("is_active", true).order("name"),
-      supabase.from("categories").select("*").eq("is_active", true).order("name"),
-      fixedQuery,
-    ]);
+  const [
+    { data: transactions },
+    { data: accounts },
+    { data: categories },
+    { data: fixedExpenses },
+  ] = await Promise.all([
+    txnQuery,
+    supabase.from("accounts").select("*").eq("is_active", true).order("name"),
+    supabase.from("categories").select("*").eq("is_active", true).order("name"),
+    fixedQuery,
+  ]);
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">Movimientos</h1>
       <TransactionsList
         transactions={transactions ?? []}
         accounts={accounts ?? []}
@@ -53,6 +61,8 @@ export default async function TransactionsPage({
         currentMonth={currentYM}
         initialTab={tab === "fixed" || tab === "income" ? tab : "expenses"}
       />
+      <NewTransactionFab accounts={accounts ?? []} categories={categories ?? []} />
     </div>
+    
   );
 }

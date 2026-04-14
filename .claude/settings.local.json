@@ -1,4 +1,17 @@
 {
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Auto-memory] Revisa si debes actualizar docs/: patterns.md | data-model.md | ui-components.md | database.md | auth.md'"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(git remote add:*)",
@@ -21,7 +34,8 @@
       "Bash(cat:*)",
       "Bash(git stash:*)",
       "Bash(git rm:*)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(grep -E \"\\\\.config|\\\\.json$\")"
     ]
   }
 }

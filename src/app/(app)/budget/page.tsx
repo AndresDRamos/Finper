@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Budget } from "@/lib/types";
 import { BudgetConfig } from "./budget-config";
+import { NewTransactionFab } from "@/components/new-transaction-fab";
 
 export default async function BudgetPage({
   searchParams,
@@ -25,6 +26,8 @@ export default async function BudgetPage({
     { data: fixedExpenses },
     { data: txns },
     { data: savingsCategory },
+    { data: accounts },
+    { data: allCategories },
   ] = await Promise.all([
     supabase.from("categories").select("*").eq("type", "expense").eq("is_active", true).order("name"),
     supabase.from("categories").select("*").eq("type", "income").eq("is_active", true).order("name"),
@@ -43,6 +46,8 @@ export default async function BudgetPage({
       .gte("transaction_date", monthStart)
       .lte("transaction_date", monthEnd),
     supabase.from("categories").select("id").eq("type", "savings").single(),
+    supabase.from("accounts").select("*").eq("is_active", true).order("name"),
+    supabase.from("categories").select("*").eq("is_active", true).order("name"),
   ]);
 
   // Separar budget de ahorro de los budgets de categorías
@@ -89,6 +94,7 @@ export default async function BudgetPage({
   }
 
   return (
+    <>
     <BudgetConfig
       expenseCategories={expenseCategories ?? []}
       incomeCategories={incomeCategories ?? []}
@@ -103,5 +109,7 @@ export default async function BudgetPage({
       savingsCategoryId={savingsCategoryId}
       initialSavingsBudget={initialSavingsBudget}
     />
+    <NewTransactionFab accounts={accounts ?? []} categories={allCategories ?? []} />
+    </>
   );
 }
