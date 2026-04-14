@@ -124,3 +124,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Prevent iOS Safari auto-zoom on input focus (requires font-size >= 16px).
+   Unlayered rules override Tailwind's layered utilities (text-xs, text-sm). */
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

@@ -395,23 +395,23 @@ export function TransactionsList({
             {/* Date range */}
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">Rango de fechas</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
+              <div className="grid grid-cols-2 gap-2 overflow-hidden">
+                <div className="min-w-0">
                   <label className="text-xs text-muted-foreground mb-1 block">Desde</label>
                   <Input
                     type="date"
                     value={filters.dateFrom}
                     onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs w-full"
                   />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="text-xs text-muted-foreground mb-1 block">Hasta</label>
                   <Input
                     type="date"
                     value={filters.dateTo}
                     onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs w-full"
                   />
                 </div>
               </div>
@@ -507,7 +507,7 @@ function TransactionRow({
   onClick: () => void;
 }) {
   const label = t.description || t.category?.name || "—";
-  const sub = t.description && t.category?.name ? t.category.name : null;
+  const sub = t.account?.name ?? null;
 
   return (
     <button
