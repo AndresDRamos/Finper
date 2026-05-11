@@ -10,8 +10,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
-import { TransactionForm } from "./transaction-form";
-import { FixedExpenseForm } from "./fixed-expense-form";
+import {
+  NewTransactionModal,
+  type TransactionEditing,
+} from "@/components/new-transaction-modal";
 import { SlidersHorizontal, ArrowUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -141,11 +143,7 @@ export function TransactionsList({
   currentMonth: string;
   initialTab?: string;
 }) {
-  const [showForm, setShowForm] = useState(false);
-  const [showFixedForm, setShowFixedForm] = useState(false);
-  const [editing, setEditing] = useState<Transaction | null>(null);
-  const [editingFixed, setEditingFixed] = useState<FixedExpense | null>(null);
-  const [formType, setFormType] = useState<"expense" | "income">("expense");
+  const [editing, setEditing] = useState<TransactionEditing | null>(null);
   const [activeTab, setActiveTab] = useState(
     initialTab === "fixed" || initialTab === "income" ? initialTab : "expenses"
   );
@@ -187,22 +185,15 @@ export function TransactionsList({
 
   return (
     <>
-      {/* Forms */}
-      {showForm && (
-        <TransactionForm
-          transaction={editing}
+      {/* Edit form — unified modal */}
+      {editing && (
+        <NewTransactionModal
+          key={editing.data.id}
+          open
+          onOpenChange={(o) => !o && setEditing(null)}
           accounts={accounts}
           categories={categories}
-          defaultType={formType}
-          onClose={() => setShowForm(false)}
-        />
-      )}
-      {showFixedForm && (
-        <FixedExpenseForm
-          fixedExpense={editingFixed}
-          accounts={accounts}
-          categories={categories}
-          onClose={() => setShowFixedForm(false)}
+          editing={editing}
         />
       )}
 
@@ -265,12 +256,7 @@ export function TransactionsList({
                 <TransactionRow
                   key={t.id}
                   transaction={t}
-                  onClick={() => {
-                    setEditing(t);
-                    setFormType("expense");
-                    setShowForm(true);
-                    setShowFixedForm(false);
-                  }}
+                  onClick={() => setEditing({ kind: "transaction", data: t })}
                 />
               ))
             )}
@@ -286,11 +272,7 @@ export function TransactionsList({
                 <FixedExpenseRow
                   key={f.id}
                   expense={f}
-                  onClick={() => {
-                    setEditingFixed(f);
-                    setShowFixedForm(true);
-                    setShowForm(false);
-                  }}
+                  onClick={() => setEditing({ kind: "fixed", data: f })}
                 />
               ))
             )}
@@ -306,12 +288,7 @@ export function TransactionsList({
                 <TransactionRow
                   key={t.id}
                   transaction={t}
-                  onClick={() => {
-                    setEditing(t);
-                    setFormType("income");
-                    setShowForm(true);
-                    setShowFixedForm(false);
-                  }}
+                  onClick={() => setEditing({ kind: "transaction", data: t })}
                 />
               ))
             )}

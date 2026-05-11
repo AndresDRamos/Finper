@@ -47,13 +47,14 @@ end_date: string | null  // null = sin fecha de fin (indefinido)
 ### Budget
 ```ts
 month_year: string      // "YYYY-MM" (NO date)
-input_type: "percentage" | "absolute"
-input_value: number     // valor como fue ingresado (% o monto)
-amount: number          // monto absoluto calculado — usar para comparaciones
+input_type: "absolute"  // siempre absolute (legacy: "percentage" en datos antiguos)
+input_value: number     // monto ingresado por el usuario
+amount: number          // monto absoluto final — usar para comparaciones
 is_manual: boolean      // true si el usuario lo sobreescribió
 ```
 - Budget para ahorro usa `category_id` → categoría `type: "savings"`.
 - Presupuesto del mes nuevo: se copia del mes anterior si no existe (ver `src/app/(app)/budget/page.tsx` L74-88).
+- UI solo permite montos absolutos (`$`). El toggle `% / $` fue eliminado.
 
 ### UserSettings
 ```ts

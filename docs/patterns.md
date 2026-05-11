@@ -38,41 +38,39 @@ onClose()          // cierra modal/sheet
 
 ## Client Component Form Pattern
 
-Esquema unificado create/edit (patrón de `account-form.tsx`):
+Esquema unificado create/edit. Para transacciones y gastos fijos se usa `NewTransactionModal` con prop `editing`:
 
 ```ts
-"use client"
+// Tipo discriminado para edición
+type TransactionEditing =
+  | { kind: "transaction"; data: Transaction }
+  | { kind: "fixed"; data: FixedExpense }
 
+// Uso en lista (transactions-list.tsx)
+const [editing, setEditing] = useState<TransactionEditing | null>(null)
+
+<NewTransactionModal
+  open={!!editing}
+  onOpenChange={(o) => !o && setEditing(null)}
+  accounts={accounts}
+  categories={categories}
+  editing={editing}  // null = crear, objeto = editar
+/>
+```
+
+Para otras entidades (accounts, categories), patrón clásico con form separado:
+
+```ts
 interface Props {
   item?: Entity      // undefined = modo create, definido = modo edit
   onClose: () => void
 }
 
 export function EntityForm({ item, onClose }: Props) {
-  const [campo, setCampo] = useState(item?.campo ?? "")
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    const payload = { campo, user_id: user!.id }
-    const { error } = item
-      ? await supabase.from("tabla").update(payload).eq("id", item.id)
-      : await supabase.from("tabla").insert(payload)
-
-    setLoading(false)
-    if (error) { toast.error(error.message); return }
-    toast.success(item ? "Actualizado" : "Creado")
-    router.refresh()
-    onClose()
-  }
-
-  return <form onSubmit={handleSubmit}>...</form>
+  const payload = { campo, user_id: user!.id }
+  const { error } = item
+    ? await supabase.from("tabla").update(payload).eq("id", item.id)
+    : await supabase.from("tabla").insert(payload)
 }
 ```
 

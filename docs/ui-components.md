@@ -32,8 +32,8 @@ Cómo funciona: convierte kebab-case → PascalCase → lookup en `icons` de luc
 | `dynamic-icon.tsx` | Renderizar cualquier `Category.icon` o icono dinámico de DB |
 | `icon-picker.tsx` | Formularios donde el usuario elige icono — usado en `budget/category-form-modal.tsx` |
 | `month-picker.tsx` | Selector de mes (YYYY-MM). Usado en transactions y budget |
-| `new-transaction-modal.tsx` | Modal global de 2 pasos (tipo → formulario). Extender aquí si añades tipos de transacción |
-| `new-transaction-fab.tsx` | FAB que abre el modal. Incluir en cada página de la app (`transactions`, `accounts`, `budget`) pasando `accounts` y `categories` como props |
+| `new-transaction-modal.tsx` | Modal unificado de crear/editar. 2 pasos al crear (tipo → formulario), directo al editar. Soporta transacciones y gastos fijos. Incluye eliminación. Exporta `TransactionEditing` type |
+| `new-transaction-fab.tsx` | FAB que abre el modal en modo creación. Incluir en cada página de la app (`transactions`, `accounts`, `budget`) pasando `accounts` y `categories` como props |
 
 ---
 
@@ -43,7 +43,7 @@ Cómo funciona: convierte kebab-case → PascalCase → lookup en `icons` de luc
 - Añadir componentes nuevos: `npx shadcn add <nombre>`
 - Estilo configurado: `new-york`
 - Importar: `@/components/ui/<nombre>`
-- Componentes disponibles: badge, button, card, dialog, input, label, progress, select, separator, sheet, tabs
+- Componentes disponibles: badge, button, card, dialog, input, label, select, separator, sheet, tabs
 
 ---
 

@@ -2,9 +2,9 @@
 
 import { Category, Budget, UserSettings } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
+
 import { MonthPicker } from "@/components/month-picker";
 import { DynamicIcon } from "@/components/dynamic-icon";
 import { CategoryFormModal } from "./category-form-modal";
@@ -13,11 +13,8 @@ import { toast } from "sonner";
 import { AlertTriangle, Info, Plus, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-type InputMode = "percentage" | "absolute";
-
 interface CategoryBudgetState {
   id?: string;
-  inputMode: InputMode;
   inputValue: string;
   isManual: boolean;
   spentAmount: number;
@@ -57,17 +54,11 @@ export function BudgetConfig({
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
-  // Savings state — leer desde el budget de ahorro, fallback a user_settings (migración)
-  const initSavingsMode: InputMode = initialSavingsBudget
-    ? (initialSavingsBudget.input_type as InputMode)
-    : ((settings?.savings_type ?? "percentage") as InputMode);
+  // Savings state — siempre monto absoluto
   const initSavingsValue = initialSavingsBudget
-    ? (initialSavingsBudget.input_value?.toString() ?? (settings?.savings_percentage ?? 20).toString())
-    : (initSavingsMode === "absolute" && settings?.savings_amount
-        ? settings.savings_amount.toString()
-        : (settings?.savings_percentage ?? 20).toString());
+    ? (initialSavingsBudget.amount?.toString() ?? (settings?.savings_amount ?? (avgIncome * 0.2)).toString())
+    : (settings?.savings_amount?.toString() ?? (avgIncome * 0.2).toString());
 
-  const [savingsMode, setSavingsMode] = useState<InputMode>(initSavingsMode);
   const [savingsValue, setSavingsValue] = useState(initSavingsValue);
   const [savingsBudgetId, setSavingsBudgetId] = useState<string | undefined>(initialSavingsBudget?.id);
   const [loading, setLoading] = useState(false);
@@ -80,8 +71,7 @@ export function BudgetConfig({
       const bd = bdMap.get(cat.id);
       map.set(cat.id, {
         id: bd?.id,
-        inputMode: (bd?.input_type as InputMode) ?? "absolute",
-        inputValue: bd?.is_manual ? (bd.input_value?.toString() ?? "") : "",
+        inputValue: bd?.is_manual ? (bd.amount?.toString() ?? "") : "",
         isManual: bd?.is_manual ?? false,
         spentAmount: spentMap[cat.id] ?? 0,
       });
@@ -94,8 +84,8 @@ export function BudgetConfig({
   // Computed values
   const savingsAmount = useMemo(() => {
     const v = parseFloat(savingsValue) || 0;
-    return savingsMode === "percentage" ? avgIncome * (v / 100) : v;
-  }, [savingsMode, savingsValue, avgIncome]);
+    return v;
+  }, [savingsValue]);
 
   const netIncome = avgIncome - fixedTotal - savingsAmount;
 
@@ -107,9 +97,8 @@ export function BudgetConfig({
     for (const [catId, state] of catBudgets) {
       if (state.isManual && state.inputValue !== "") {
         const v = parseFloat(state.inputValue) || 0;
-        const amount = state.inputMode === "percentage" ? netIncome * (v / 100) : v;
-        result.set(catId, amount);
-        manualTotal += amount;
+        result.set(catId, v);
+        manualTotal += v;
       } else {
         autoCount++;
         result.set(catId, 0);
@@ -174,7 +163,7 @@ export function BudgetConfig({
         category_id: savingsCategoryId,
         month_year: currentMonth,
         amount: savingsAmount,
-        input_type: savingsMode,
+        input_type: "absolute" as const,
         input_value: savingsValue !== "" ? parseFloat(savingsValue) : null,
         is_manual: true,
       };
@@ -202,7 +191,7 @@ export function BudgetConfig({
         category_id: categoryId,
         month_year: currentMonth,
         amount: computedAmount,
-        input_type: state.inputMode,
+        input_type: "absolute" as const,
         input_value: state.isManual ? inputVal : null,
         is_manual: state.isManual,
       };
@@ -276,58 +265,40 @@ export function BudgetConfig({
             </div>
           )}
 
-          {/* Net income summary */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Ingreso neto disponible</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Ingreso promedio</span>
-                <span>${avgIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Gastos fijos</span>
-                <span>-${fixedTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Ahorro</span>
-                <span>-${savingsAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-              </div>
-              <div className="flex justify-between font-semibold border-t pt-1 mt-1">
-                <span>Neto</span>
-                <span className={netIncome < 0 ? "text-red-500" : "text-green-500"}>
-                  ${netIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Savings config */}
-          <Card>
-            <CardContent className="pt-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Ahorro mensual</p>
-                <ModeToggle mode={savingsMode} onChange={setSavingsMode} />
-              </div>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  step={savingsMode === "percentage" ? "0.5" : "1"}
-                  min="0"
-                  max={savingsMode === "percentage" ? "100" : undefined}
-                  value={savingsValue}
-                  onChange={(e) => setSavingsValue(e.target.value)}
-                  className="h-8 text-sm"
-                />
-                <span className="text-sm text-muted-foreground w-24 shrink-0">
-                  {savingsMode === "percentage"
-                    ? `= $${savingsAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-                    : `(${avgIncome > 0 ? ((savingsAmount / avgIncome) * 100).toFixed(1) : 0}%)`}
+          <div className="flex items-center gap-3 py-2">
+            <span className="text-sm font-medium">Ahorro:</span>
+            <Input
+              type="number"
+              step="1"
+              min="0"
+              value={savingsValue}
+              onChange={(e) => setSavingsValue(e.target.value)}
+              className="h-8 text-sm w-28"
+            />
+            <span className="text-xs text-muted-foreground">
+              ({avgIncome > 0 ? ((savingsAmount / avgIncome) * 100).toFixed(1) : 0}%)
+            </span>
+          </div>
+
+          {/* Remaining to budget indicator */}
+          {(() => {
+            const remaining = netIncome - totalAllocated;
+            return (
+              <div
+                className={`text-sm px-3 py-2 rounded-md border ${
+                  remaining >= 0
+                    ? "text-green-500 bg-green-500/10 border-green-500/20"
+                    : "text-red-500 bg-red-500/10 border-red-500/20"
+                }`}
+              >
+                Restante por presupuestar:{" "}
+                <span className="font-medium">
+                  ${remaining.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </span>
               </div>
-            </CardContent>
-          </Card>
+            );
+          })()}
 
           {/* Over budget warning */}
           {isOverBudget && (
@@ -367,14 +338,14 @@ export function BudgetConfig({
               const pct = budgetAmt > 0 ? (spentAmt / budgetAmt) * 100 : 0;
 
               return (
-                <Card key={cat.id}>
-                  <CardContent className="py-3 px-4 space-y-2">
+                <Card key={cat.id} className="py-2">
+                  <CardContent className="py-1 px-3 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm flex items-center gap-1.5">
-                        <DynamicIcon name={cat.icon} size={16} fallback={<span className="text-base">{cat.icon}</span>} />
+                        <DynamicIcon name={cat.icon} size={14} fallback={<span className="text-xs">{cat.icon}</span>} />
                         {cat.name}
                         {!state.isManual && (
-                          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Auto</span>
+                          <span className="text-[9px] text-muted-foreground bg-muted px-1 py-0.5 rounded">Auto</span>
                         )}
                       </span>
                       <div className="flex items-center gap-2">
@@ -407,11 +378,7 @@ export function BudgetConfig({
                             isManual: e.target.value !== "",
                           })
                         }
-                        className="h-8 text-sm"
-                      />
-                      <ModeToggle
-                        mode={state.inputMode}
-                        onChange={(m) => updateCatBudget(cat.id, { inputMode: m })}
+                        className="h-7 text-xs"
                       />
                       {state.isManual && (
                         <button
@@ -424,21 +391,6 @@ export function BudgetConfig({
                         </button>
                       )}
                     </div>
-
-                    {state.inputMode === "percentage" && state.isManual && state.inputValue && (
-                      <p className="text-xs text-muted-foreground">
-                        = ${(netIncome * ((parseFloat(state.inputValue) || 0) / 100)).toLocaleString(
-                          undefined, { maximumFractionDigits: 0 }
-                        )}
-                      </p>
-                    )}
-
-                    {budgetAmt > 0 && (
-                      <Progress
-                        value={Math.min(pct, 100)}
-                        className={pct > 100 ? "[&>div]:bg-red-500" : pct > 80 ? "[&>div]:bg-yellow-500" : ""}
-                      />
-                    )}
                     {pct > 100 && (
                       <p className="text-xs text-red-500">
                         Excedido por ${(spentAmt - budgetAmt).toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -501,27 +453,6 @@ export function BudgetConfig({
         categoryType={activeTab}
         category={editingCategory}
       />
-    </div>
-  );
-}
-
-function ModeToggle({ mode, onChange }: { mode: InputMode; onChange: (m: InputMode) => void }) {
-  return (
-    <div className="flex rounded-md overflow-hidden border text-xs shrink-0">
-      <button
-        type="button"
-        className={`px-2 py-1 transition-colors ${mode === "percentage" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => onChange("percentage")}
-      >
-        %
-      </button>
-      <button
-        type="button"
-        className={`px-2 py-1 transition-colors ${mode === "absolute" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => onChange("absolute")}
-      >
-        $
-      </button>
     </div>
   );
 }

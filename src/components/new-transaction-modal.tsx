@@ -1,6 +1,6 @@
 "use client";
 
-import { Account, Category } from "@/lib/types";
+import { Account, Category, Transaction, FixedExpense } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,39 +23,77 @@ import {
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Receipt, CalendarClock, TrendingUp } from "lucide-react";
+import {
+  ArrowLeft,
+  Receipt,
+  CalendarClock,
+  TrendingUp,
+  Trash2,
+} from "lucide-react";
 
 type TxType = "expense" | "income" | "fixed";
+
+export type TransactionEditing =
+  | { kind: "transaction"; data: Transaction }
+  | { kind: "fixed"; data: FixedExpense };
 
 export function NewTransactionModal({
   open,
   onOpenChange,
   accounts,
   categories,
+  editing = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accounts: Account[];
   categories: Category[];
+  editing?: TransactionEditing | null;
 }) {
   const router = useRouter();
-  const [step, setStep] = useState<"type" | "form">("type");
-  const [txType, setTxType] = useState<TxType>("expense");
+
+  const initialType: TxType = editing
+    ? editing.kind === "fixed"
+      ? "fixed"
+      : editing.data.type
+    : "expense";
+
+  const [step, setStep] = useState<"type" | "form">(
+    editing ? "form" : "type",
+  );
+  const [txType, setTxType] = useState<TxType>(initialType);
   const [loading, setLoading] = useState(false);
 
-  // Form fields
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [accountId, setAccountId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [startDate, setStartDate] = useState(
-    new Date().toISOString().split("T")[0],
+  const initialStartDate =
+    editing?.kind === "fixed"
+      ? editing.data.start_date
+      : new Date().toISOString().split("T")[0];
+  const initialDate =
+    editing?.kind === "transaction"
+      ? editing.data.transaction_date
+      : new Date().toISOString().split("T")[0];
+
+  const [amount, setAmount] = useState(
+    editing ? String(editing.data.amount) : "",
   );
-  const [endDate, setEndDate] = useState("");
+  const [description, setDescription] = useState(
+    editing ? (editing.data.description ?? "") : "",
+  );
+  const [accountId, setAccountId] = useState(
+    editing ? editing.data.account_id : "",
+  );
+  const [categoryId, setCategoryId] = useState(
+    editing ? (editing.data.category_id ?? "") : "",
+  );
+  const [date, setDate] = useState(initialDate);
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const [endDate, setEndDate] = useState(
+    editing?.kind === "fixed" ? (editing.data.end_date ?? "") : "",
+  );
 
   function resetForm() {
     setStep("type");
+    setTxType("expense");
     setAmount("");
     setDescription("");
     setAccountId("");
@@ -66,7 +104,7 @@ export function NewTransactionModal({
   }
 
   function handleOpenChange(open: boolean) {
-    if (!open) resetForm();
+    if (!open && !editing) resetForm();
     onOpenChange(open);
   }
 
@@ -81,6 +119,8 @@ export function NewTransactionModal({
     if (txType === "fixed") return c.type === "fixed_system";
     return false;
   });
+
+  const selectedCategory = filteredCategories.find((c) => c.id === categoryId);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -103,7 +143,7 @@ export function NewTransactionModal({
     let error;
 
     if (txType === "fixed") {
-      ({ error } = await supabase.from("fixed_expenses").insert({
+      const payload = {
         user_id: user!.id,
         amount: parseFloat(amount),
         description,
@@ -111,9 +151,16 @@ export function NewTransactionModal({
         category_id: categoryId || null,
         start_date: startDate,
         end_date: endDate || null,
-      }));
+      };
+      ({ error } =
+        editing?.kind === "fixed"
+          ? await supabase
+              .from("fixed_expenses")
+              .update(payload)
+              .eq("id", editing.data.id)
+          : await supabase.from("fixed_expenses").insert(payload));
     } else {
-      ({ error } = await supabase.from("transactions").insert({
+      const payload = {
         user_id: user!.id,
         type: txType,
         amount: parseFloat(amount),
@@ -121,17 +168,47 @@ export function NewTransactionModal({
         account_id: accountId,
         category_id: categoryId || null,
         transaction_date: date,
-      }));
+      };
+      ({ error } =
+        editing?.kind === "transaction"
+          ? await supabase
+              .from("transactions")
+              .update(payload)
+              .eq("id", editing.data.id)
+          : await supabase.from("transactions").insert(payload));
     }
 
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Registrado");
+      toast.success(editing ? "Actualizado" : "Registrado");
       handleOpenChange(false);
       router.refresh();
     }
     setLoading(false);
+  }
+
+  async function handleDelete() {
+    if (!editing) return;
+    const label =
+      editing.kind === "fixed" ? "este gasto fijo" : "esta transacción";
+    if (!confirm(`¿Eliminar ${label}?`)) return;
+
+    const supabase = createClient();
+    const table =
+      editing.kind === "fixed" ? "fixed_expenses" : "transactions";
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq("id", editing.data.id);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Eliminado");
+    handleOpenChange(false);
+    router.refresh();
   }
 
   const typeLabel =
@@ -141,11 +218,16 @@ export function NewTransactionModal({
         ? "ingreso"
         : "gasto fijo";
 
+  const iconColor = selectedCategory?.color ?? null;
+  const iconBg = iconColor ? `${iconColor}1a` : undefined;
+  const fallbackGlyph =
+    txType === "income" ? "↑" : txType === "fixed" ? "↻" : "↓";
+
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="bottom"
-        className="rounded-t-2xl max-h-[85vh] overflow-y-auto"
+        className="max-h-[88vh] overflow-y-auto rounded-t-2xl px-0 pb-0"
       >
         {step === "type" ? (
           <>
@@ -181,55 +263,136 @@ export function NewTransactionModal({
           </>
         ) : (
           <>
-            <SheetHeader>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setStep("type")}
+            {/* Handle */}
+            <div className="flex justify-center pt-1 pb-3">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/25" />
+            </div>
+
+            <SheetHeader className="px-5 pb-4 border-b border-border/40">
+              <div className="flex items-center gap-3">
+                {!editing && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => setStep("type")}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                )}
+
+                {/* Category icon badge */}
+                <span
+                  className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 transition-colors"
+                  style={iconBg ? { backgroundColor: iconBg } : undefined}
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <SheetTitle>Nuevo {typeLabel}</SheetTitle>
+                  <DynamicIcon
+                    name={selectedCategory?.icon ?? null}
+                    className="h-5 w-5"
+                    style={iconColor ? { color: iconColor } : undefined}
+                    fallback={
+                      <span className="text-muted-foreground/50 text-sm">
+                        {fallbackGlyph}
+                      </span>
+                    }
+                  />
+                </span>
+
+                <SheetTitle className="text-left font-semibold">
+                  {editing ? "Editar" : "Nuevo"} {typeLabel}
+                </SheetTitle>
+
+                {editing && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="ml-auto h-8 w-8 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
+                    onClick={handleDelete}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
               <SheetDescription className="sr-only">
-                Formulario para registrar un nuevo {typeLabel}
+                Formulario para {editing ? "editar" : "registrar"} un {typeLabel}
               </SheetDescription>
             </SheetHeader>
-            <form onSubmit={handleSubmit} className="space-y-3 px-4 pb-4">
-              {/* Descripción primero solo para gasto fijo */}
-              {txType === "fixed" && (
-                <div className="space-y-1">
-                  <Label>Descripción *</Label>
-                  <Input
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Netflix, Renta..."
-                    required
-                    autoFocus
-                  />
-                </div>
-              )}
 
-              <div className="space-y-1">
-                <Label>Monto</Label>
-                <Input
+            <form
+              onSubmit={handleSubmit}
+              className="px-5 pt-5 pb-10 space-y-5"
+            >
+              {/* Amount — prominent */}
+              <div className="flex items-baseline justify-center gap-1 py-4 border-b border-border/40">
+                <span className="text-2xl text-muted-foreground/50 font-mono">
+                  $
+                </span>
+                <input
                   type="number"
                   step="0.01"
+                  min="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
                   required
                   autoFocus={txType !== "fixed"}
+                  className="w-full text-3xl font-semibold font-mono tabular-nums text-center bg-transparent border-none outline-none placeholder:text-muted-foreground/25 [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
 
-              <div className="space-y-1">
-                <Label>Cuenta</Label>
+              {/* Descripción primero solo para gasto fijo */}
+              {txType === "fixed" && (
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Descripción *
+                  </Label>
+                  <Input
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Netflix, Renta…"
+                    required
+                    autoFocus={!editing}
+                    className="bg-muted/20 border-border/50"
+                  />
+                </div>
+              )}
+
+              {/* Category */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Categoría{txType === "income" ? " *" : ""}
+                </Label>
+                <Select value={categoryId} onValueChange={setCategoryId}>
+                  <SelectTrigger className="bg-muted/20 border-border/50">
+                    <SelectValue placeholder="Seleccionar categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredCategories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="flex items-center gap-2">
+                          <DynamicIcon
+                            name={c.icon}
+                            className="h-4 w-4 shrink-0"
+                            style={c.color ? { color: c.color } : undefined}
+                          />
+                          {c.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Account */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Cuenta
+                </Label>
                 <Select value={accountId} onValueChange={setAccountId} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar" />
+                  <SelectTrigger className="bg-muted/20 border-border/50">
+                    <SelectValue placeholder="Seleccionar cuenta" />
                   </SelectTrigger>
                   <SelectContent>
                     {accounts.map((a) => (
@@ -241,46 +404,33 @@ export function NewTransactionModal({
                 </Select>
               </div>
 
-              <div className="space-y-1">
-                <Label>Categoría{txType === "income" ? " *" : ""}</Label>
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredCategories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        <DynamicIcon
-                          name={c.icon ?? null}
-                          className="h-4 w-4 inline "
-                        />{" "}
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
               {/* Descripción para gasto/ingreso */}
               {txType !== "fixed" && (
-                <div className="space-y-1">
-                  <Label>Descripción</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Descripción
+                  </Label>
                   <Input
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Opcional"
+                    className="bg-muted/20 border-border/50"
                   />
                 </div>
               )}
 
-              {/* Fecha para gasto/ingreso */}
+              {/* Fecha única para gasto/ingreso */}
               {txType !== "fixed" && (
-                <div className="space-y-1">
-                  <Label>Fecha</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Fecha
+                  </Label>
                   <Input
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     required
+                    className="bg-muted/20 border-border/50"
                   />
                 </div>
               )}
@@ -288,33 +438,39 @@ export function NewTransactionModal({
               {/* Fechas para gasto fijo */}
               {txType === "fixed" && (
                 <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label>Fecha inicio</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Inicio
+                      </Label>
                       <Input
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
                         required
+                        className="bg-muted/20 border-border/50"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <Label>Fecha fin</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Fin
+                      </Label>
                       <Input
                         type="date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
+                        className="bg-muted/20 border-border/50"
                       />
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground -mt-2">
                     Deja fecha fin vacía si es indefinido.
                   </p>
                 </>
               )}
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Guardando..." : "Guardar"}
+                {loading ? "Guardando…" : "Guardar"}
               </Button>
             </form>
           </>
